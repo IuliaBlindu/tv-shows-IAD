@@ -1,5 +1,6 @@
 package com.iad.tvshowsiad;
 
+import com.iad.tvshowsiad.result.Result;
 import org.apache.camel.Exchange;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.model.dataformat.JsonLibrary;
@@ -8,7 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.UUID;
+import java.util.Map;
 
 @Service
 public class MainRouteBuilder extends RouteBuilder {
@@ -42,23 +43,28 @@ public class MainRouteBuilder extends RouteBuilder {
             .setHeader(Exchange.HTTP_QUERY)
             .simple("category=${header.category}")
             .to("https://www.freetogame.com/api/games")
-            .convertBodyTo(String.class)
-            .unmarshal().json(JsonLibrary.Jackson)
-            .setHeader("id", () -> UUID.randomUUID().toString())
-            .setHeader("size").simple("${body.size}")
-//            .setBody(exchange -> {
-//                List<Object> items = exchange.getIn().getBody(List.class);
-//                int count = items.size();
-//                return count;
-//            })
-            .marshal().json(JsonLibrary.Jackson)
             .process(exchange -> {
                 Files.write(Paths.get(String.format("cache/%s.json", exchange.getIn().getHeader("category", String.class))),
                         exchange.getIn().getBody(String.class).getBytes());
             })
             .setBody().constant("")
             .setBody(exchange -> Paths.get(String.format("cache/%s.json", exchange.getIn().getHeader("category", String.class))).toFile())
-            .convertBodyTo(String.class);
+            .convertBodyTo(String.class)
+            .unmarshal().json(JsonLibrary.Jackson)
+            .split().body()
+            .setBody(exchange -> {
+                Map<String, Object> item = exchange.getIn().getBody(Map.class);
+                String title = (String) item.get("title");
+                String platform = (String) item.get("platform");
+                System.out.println(title);
+                System.out.println(platform);
+                return Result.builder().title(title).platform(platform).build();
+            })
+            .process(exchange -> {
+                Files.write(Paths.get(String.format("message/%s.json", exchange.getIn().getHeader("category", String.class))),
+                        exchange.getIn().getBody(String.class).getBytes());
+            })
+            .end();
     }
 
 

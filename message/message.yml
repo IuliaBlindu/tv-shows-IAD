@@ -1,0 +1,2 @@
+subject: "{{category}} Games"
+message: "Hello, We found {{games_number}} games for {{category}}. \n Here is the list: {{list_of_games}}!"
