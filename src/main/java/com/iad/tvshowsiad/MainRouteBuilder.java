@@ -1,6 +1,7 @@
 package com.iad.tvshowsiad;
 
-import com.iad.tvshowsiad.result.Result;
+import com.iad.tvshowsiad.result.Game;
+import com.iad.tvshowsiad.result.ListOfGames;
 import org.apache.camel.Exchange;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.model.dataformat.JsonLibrary;
@@ -52,19 +53,26 @@ public class MainRouteBuilder extends RouteBuilder {
             .convertBodyTo(String.class)
             .unmarshal().json(JsonLibrary.Jackson)
             .split().body()
-            .setBody(exchange -> {
+            .process(exchange -> {
                 Map<String, Object> item = exchange.getIn().getBody(Map.class);
                 String title = (String) item.get("title");
                 String platform = (String) item.get("platform");
                 System.out.println(title);
                 System.out.println(platform);
-                return Result.builder().title(title).platform(platform).build();
-            })
+                ListOfGames.addGame(Game.builder().title(title).platform(platform).build());
+                ListOfGames.setCategory(exchange.getIn().getHeader("category", String.class));
+                }
+            )
+            .setBody().constant(ListOfGames.getGames())
             .process(exchange -> {
-                Files.write(Paths.get(String.format("message/%s.json", exchange.getIn().getHeader("category", String.class))),
+                Files.write(Paths.get(String.format("message/%s.txt", exchange.getIn().getHeader("category", String.class))),
                         exchange.getIn().getBody(String.class).getBytes());
             })
             .end();
+
+            from("file:message").doTry().setHeader("subject", simple("${header.category}"))
+            .setHeader("to", simple("iulliaioanna6@gmail.com"))
+            .to("smtps://smtp.gmail.com:465?username=proiect.iad.games@gmail.com&password=proiectiad");
     }
 
 
